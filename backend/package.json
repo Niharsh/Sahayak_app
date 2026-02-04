@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "seed:locations": "node scripts/seedLocations.js"
   },
   "author": "",
   "license": "MIT",

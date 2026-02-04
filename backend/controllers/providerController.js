@@ -44,6 +44,20 @@ async function apply(req, res) {
     String(a).trim().toLowerCase(),
   );
 
+  // Validate locations exist (no free-text allowed)
+  const Location = require("../models/Location");
+  const missing = [];
+  for (const a of areas) {
+    /* istanbul ignore next: defensive */
+    if (!a) continue;
+    const exists = await Location.exists({ name: a });
+    if (!exists) missing.push(a);
+  }
+  if (missing.length > 0)
+    return res
+      .status(400)
+      .json({ error: `Unknown locations: ${missing.join(", ")}` });
+
   // map files
   const filesMeta = [];
   if (req.files) {
@@ -134,6 +148,19 @@ async function updateMe(req, res) {
   const areas = (value.serviceAreas || []).map((a) =>
     String(a).trim().toLowerCase(),
   );
+
+  // Validate that provided areas exist
+  const Location = require("../models/Location");
+  const missing = [];
+  for (const a of areas) {
+    if (!a) continue;
+    const exists = await Location.exists({ name: a });
+    if (!exists) missing.push(a);
+  }
+  if (missing.length > 0)
+    return res
+      .status(400)
+      .json({ error: `Unknown locations: ${missing.join(", ")}` });
 
   provider.serviceCategory = cat;
   provider.serviceAreas = areas;

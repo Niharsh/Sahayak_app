@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import '../services/auth_service.dart';
 import '../services/provider_service.dart';
 import '../data/categories.dart';
+import '../widgets/location_autocomplete_field.dart';
 
 class ProviderApplyScreen extends StatefulWidget {
   @override
@@ -13,11 +14,12 @@ class ProviderApplyScreen extends StatefulWidget {
 
 class _ProviderApplyScreenState extends State<ProviderApplyScreen> {
   String? _selectedCategoryLabel;
-  final _areasCtrl = TextEditingController();
   final _expCtrl = TextEditingController();
   List<File> identityFiles = [];
   List<File> skillFiles = [];
   bool loading = false;
+  // selected areas stored as normalized lowercase values
+  List<String> _selectedAreasNormalized = [];
 
   Future<void> pickFiles(List<File> target) async {
     final result = await FilePicker.platform.pickFiles(allowMultiple: true);
@@ -38,7 +40,14 @@ class _ProviderApplyScreenState extends State<ProviderApplyScreen> {
     final service = ProviderService(auth.token!);
     // normalize category value to send
     final categoryValue = valueForLabel(_selectedCategoryLabel!);
-    final fields = {'serviceCategory': categoryValue, 'serviceAreas': _areasCtrl.text.split(',').map((s) => s.trim()).toList(), 'experienceYears': int.tryParse(_expCtrl.text) ?? 0};
+    // ensure some areas selected
+    if (_selectedAreasNormalized.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please add at least one service area from suggestions')));
+      setState(() => loading = false);
+      return;
+    }
+
+    final fields = {'serviceCategory': categoryValue, 'serviceAreas': _selectedAreasNormalized, 'experienceYears': int.tryParse(_expCtrl.text) ?? 0};
     final res = await service.apply(fields, identityFiles: identityFiles, skillFiles: skillFiles);
     setState(() => loading = false);
     if (res['status'] == 201) {
@@ -64,7 +73,13 @@ class _ProviderApplyScreenState extends State<ProviderApplyScreen> {
               items: CATEGORY_LABELS.map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
               onChanged: (v) => setState(() => _selectedCategoryLabel = v),
             ),
-            TextField(controller: _areasCtrl, decoration: InputDecoration(labelText: 'Service Areas (comma separated)')),
+            // Select one or more locations from suggestions. Free-text not allowed.
+            LocationAutocompleteField(
+              multi: true,
+              onChanged: (list) => setState(() => _selectedAreasNormalized = List<String>.from(list)),
+              hintText: 'Add service areas (pick from suggestions)',
+            ),
+            SizedBox(height: 6),
             TextField(controller: _expCtrl, decoration: InputDecoration(labelText: 'Years of experience'), keyboardType: TextInputType.number),
             SizedBox(height: 10),
             Text('Identity documents'),
