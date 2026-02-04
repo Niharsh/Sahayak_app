@@ -18,7 +18,6 @@ app.use("/auth", authRoutes);
 app.use("/providers", require("./routes/providers"));
 app.use("/services", require("./routes/services"));
 app.use("/bookings", require("./routes/bookings"));
-app.use("/locations", require("./routes/locations"));
 app.use("/admin", adminRoutes);
 
 app.get("/", (req, res) =>

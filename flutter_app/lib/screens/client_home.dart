@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../data/categories.dart';
-import '../widgets/location_autocomplete_field.dart';
 import 'provider_list.dart';
 
 class ClientHome extends StatefulWidget {
@@ -12,7 +11,7 @@ class ClientHome extends StatefulWidget {
 
 class _ClientHomeState extends State<ClientHome> {
   String? _selectedCategoryLabel;
-  String? _selectedAreaNormalized;
+  final _areaCtrl = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -54,17 +53,12 @@ class _ClientHomeState extends State<ClientHome> {
             onChanged: (v) => setState(() => _selectedCategoryLabel = v),
           ),
           SizedBox(height: 8),
-          LocationAutocompleteField(
-            multi: false,
-            hintText: 'Select area',
-            onSelected: (norm) => setState(() => _selectedAreaNormalized = norm),
-          ),
+          TextField(controller: _areaCtrl, decoration: InputDecoration(labelText: 'Area (e.g., Area1)')),
           SizedBox(height: 12),
           ElevatedButton(onPressed: () {
             final cat = _selectedCategoryLabel;
-            final area = _selectedAreaNormalized;
-            if (cat != null && cat.isNotEmpty && area != null && area.isNotEmpty) Navigator.push(context, MaterialPageRoute(builder: (_) => ProviderListScreen(category: valueForLabel(cat), area: area.trim().toLowerCase())));
-            else ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please select a category and area')));
+            final area = _areaCtrl.text.trim();
+            if (cat != null && cat.isNotEmpty && area.isNotEmpty) Navigator.push(context, MaterialPageRoute(builder: (_) => ProviderListScreen(category: valueForLabel(cat), area: area.trim().toLowerCase())));
           }, child: Text('Search Providers')),
           SizedBox(height: 20),
           ElevatedButton(onPressed: () => Navigator.pushNamed(context, '/client/bookings'), child: Text('My Bookings')),

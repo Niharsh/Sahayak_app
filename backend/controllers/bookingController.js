@@ -44,17 +44,13 @@ async function searchProviders(req, res) {
     area,
   );
 
-  // ensure location exists and reject free-text
-  const Location = require("../models/Location");
-  const locExists = await Location.exists({ name: area });
-  if (!locExists) return res.status(400).json({ error: "Unknown location" });
-
   // Use normalized fields; if some old data exists with mixed case, also accept case-insensitive via regex
   const query = {
     serviceCategory: { $regex: new RegExp("^" + category + "$", "i") },
     serviceAreas: { $in: [new RegExp("^" + area + "$", "i")] },
     verificationLevel: { $gte: 2 },
   };
+
   let providers = await Provider.find(query).populate("user", "name");
 
   // debug: show providers count and ids
@@ -113,11 +109,6 @@ async function createBooking(req, res) {
   if (!isValidCategory(serviceCategory))
     return res.status(400).json({ error: "Invalid serviceCategory" });
 
-  // validate location exists
-  const Location = require("../models/Location");
-  const locExists = await Location.exists({ name: serviceArea });
-  if (!locExists) return res.status(400).json({ error: "Unknown location" });
-
   let assignedProvider = null;
 
   if (providerId) {
@@ -128,13 +119,7 @@ async function createBooking(req, res) {
       return res.status(400).json({ error: "Provider not eligible" });
   } else {
     // simple deterministic strategy: pick top-ranked provider matching category/area
-    // debug: log search params and existing candidates (before assignment)
-    console.log(
-      "auto-assign: searching for providers category=",
-      serviceCategory,
-      "area=",
-      serviceArea,
-    );
+    // use normalized matching (serviceCategory stored normalized, serviceAreas array contains normalized area values)
     const candidates = await Provider.find({
       serviceCategory: serviceCategory,
       serviceAreas: serviceArea,
@@ -142,10 +127,6 @@ async function createBooking(req, res) {
     })
       .sort({ verificationLevel: -1, createdAt: -1 })
       .limit(1);
-    console.log(
-      "auto-assign: candidates found=",
-      candidates.map((c) => ({ id: c._id, serviceAreas: c.serviceAreas })),
-    );
     if (candidates.length > 0) assignedProvider = candidates[0];
   }
 
