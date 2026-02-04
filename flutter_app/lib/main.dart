@@ -52,23 +52,30 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
+  @override
+  _AuthWrapperState createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    // initialize auth once at app startup
+    final auth = Provider.of<AuthService>(context, listen: false);
+    auth.init();
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthService>(context);
 
-    return FutureBuilder<bool>(
-      future: auth.tryAutoLogin(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) return Scaffold(body: Center(child: CircularProgressIndicator()));
-        if (!snapshot.hasData || !snapshot.data!) return LoginScreen();
-        // navigate to role-based home
-        final role = auth.userRole;
-        if (role == 'client') return ClientHome();
-        if (role == 'provider') return ProviderHome();
-        if (role == 'admin') return AdminHome();
-        return LoginScreen();
-      },
-    );
+    if (auth.isLoading) return Scaffold(body: Center(child: CircularProgressIndicator()));
+    if (auth.token == null) return LoginScreen();
+    final role = auth.userRole;
+    if (role == 'client') return ClientHome();
+    if (role == 'provider') return ProviderHome();
+    if (role == 'admin') return AdminHome();
+    return LoginScreen();
   }
 }

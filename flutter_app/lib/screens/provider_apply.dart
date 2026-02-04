@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/auth_service.dart';
 import '../services/provider_service.dart';
+import '../data/categories.dart';
 
 class ProviderApplyScreen extends StatefulWidget {
   @override
@@ -11,7 +12,7 @@ class ProviderApplyScreen extends StatefulWidget {
 }
 
 class _ProviderApplyScreenState extends State<ProviderApplyScreen> {
-  final _categoryCtrl = TextEditingController();
+  String? _selectedCategoryLabel;
   final _areasCtrl = TextEditingController();
   final _expCtrl = TextEditingController();
   List<File> identityFiles = [];
@@ -28,10 +29,16 @@ class _ProviderApplyScreenState extends State<ProviderApplyScreen> {
   }
 
   Future<void> submit() async {
+    if (_selectedCategoryLabel == null || _selectedCategoryLabel!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please select a service category')));
+      return;
+    }
     setState(() => loading = true);
     final auth = Provider.of<AuthService>(context, listen: false);
     final service = ProviderService(auth.token!);
-    final fields = {'serviceCategory': _categoryCtrl.text.trim(), 'serviceAreas': _areasCtrl.text.split(',').map((s) => s.trim()).toList(), 'experienceYears': int.tryParse(_expCtrl.text) ?? 0};
+    // normalize category value to send
+    final categoryValue = valueForLabel(_selectedCategoryLabel!);
+    final fields = {'serviceCategory': categoryValue, 'serviceAreas': _areasCtrl.text.split(',').map((s) => s.trim()).toList(), 'experienceYears': int.tryParse(_expCtrl.text) ?? 0};
     final res = await service.apply(fields, identityFiles: identityFiles, skillFiles: skillFiles);
     setState(() => loading = false);
     if (res['status'] == 201) {
@@ -51,7 +58,12 @@ class _ProviderApplyScreenState extends State<ProviderApplyScreen> {
         padding: const EdgeInsets.all(16.0),
         child: ListView(
           children: [
-            TextField(controller: _categoryCtrl, decoration: InputDecoration(labelText: 'Service Category (e.g., plumber)')),
+            DropdownButtonFormField<String>(
+              decoration: InputDecoration(labelText: 'Service Category'),
+              value: _selectedCategoryLabel,
+              items: CATEGORY_LABELS.map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+              onChanged: (v) => setState(() => _selectedCategoryLabel = v),
+            ),
             TextField(controller: _areasCtrl, decoration: InputDecoration(labelText: 'Service Areas (comma separated)')),
             TextField(controller: _expCtrl, decoration: InputDecoration(labelText: 'Years of experience'), keyboardType: TextInputType.number),
             SizedBox(height: 10),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../data/categories.dart';
 import 'provider_list.dart';
 
 class ClientHome extends StatefulWidget {
@@ -9,7 +10,7 @@ class ClientHome extends StatefulWidget {
 }
 
 class _ClientHomeState extends State<ClientHome> {
-  final _categoryCtrl = TextEditingController();
+  String? _selectedCategoryLabel;
   final _areaCtrl = TextEditingController();
 
   @override
@@ -45,11 +46,20 @@ class _ClientHomeState extends State<ClientHome> {
           SizedBox(height: 16),
           Text('Discover Services', style: TextStyle(fontWeight: FontWeight.w700)),
           SizedBox(height: 10),
-          TextField(controller: _categoryCtrl, decoration: InputDecoration(labelText: 'Service Category (e.g., plumber)')),
+          DropdownButtonFormField<String>(
+            decoration: InputDecoration(labelText: 'Service Category'),
+            value: _selectedCategoryLabel,
+            items: CATEGORY_LABELS.map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+            onChanged: (v) => setState(() => _selectedCategoryLabel = v),
+          ),
           SizedBox(height: 8),
           TextField(controller: _areaCtrl, decoration: InputDecoration(labelText: 'Area (e.g., Area1)')),
           SizedBox(height: 12),
-          ElevatedButton(onPressed: () { final cat = _categoryCtrl.text.trim(); final area = _areaCtrl.text.trim(); if (cat.isNotEmpty && area.isNotEmpty) Navigator.push(context, MaterialPageRoute(builder: (_) => ProviderListScreen(category: cat, area: area))); }, child: Text('Search Providers')),
+          ElevatedButton(onPressed: () {
+            final cat = _selectedCategoryLabel;
+            final area = _areaCtrl.text.trim();
+            if (cat != null && cat.isNotEmpty && area.isNotEmpty) Navigator.push(context, MaterialPageRoute(builder: (_) => ProviderListScreen(category: valueForLabel(cat), area: area.trim().toLowerCase())));
+          }, child: Text('Search Providers')),
           SizedBox(height: 20),
           ElevatedButton(onPressed: () => Navigator.pushNamed(context, '/client/bookings'), child: Text('My Bookings')),
           SizedBox(height: 20),

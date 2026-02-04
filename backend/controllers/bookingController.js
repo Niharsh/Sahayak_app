@@ -11,6 +11,8 @@ const createSchema = Joi.object({
   providerId: Joi.string().optional().allow(null),
 });
 
+const { normalizeCategory, isValidCategory } = require("../utils/categories");
+
 // GET supported categories (static)
 const CATEGORIES = ["maid", "plumber", "barber", "electrician", "carpenter"];
 
@@ -20,19 +22,46 @@ async function getCategories(req, res) {
 
 // Provider search
 async function searchProviders(req, res) {
-  const category = req.query.category;
-  const area = req.query.area;
+  const rawCategory = req.query.category;
+  const rawArea = req.query.area;
 
-  if (!category || !area)
+  if (!rawCategory || !rawArea)
     return res.status(400).json({ error: "category and area are required" });
 
+  const { normalizeCategory } = require("../utils/categories");
+  const category = normalizeCategory(rawCategory);
+  const area = String(rawArea).trim().toLowerCase();
+
+  // debug logs to help trace mismatches
+  console.log(
+    "searchProviders: category=",
+    rawCategory,
+    "=>",
+    category,
+    "area=",
+    rawArea,
+    "=>",
+    area,
+  );
+
+  // Use normalized fields; if some old data exists with mixed case, also accept case-insensitive via regex
   const query = {
-    serviceCategory: category,
-    serviceAreas: area,
+    serviceCategory: { $regex: new RegExp("^" + category + "$", "i") },
+    serviceAreas: { $in: [new RegExp("^" + area + "$", "i")] },
     verificationLevel: { $gte: 2 },
   };
 
-  const providers = await Provider.find(query).populate("user", "name");
+  let providers = await Provider.find(query).populate("user", "name");
+
+  // debug: show providers count and ids
+  console.log(
+    "providers found (pre-sort):",
+    providers.map((p) => ({
+      id: p._id,
+      serviceCategory: p.serviceCategory,
+      serviceAreas: p.serviceAreas,
+    })),
+  );
 
   // sort by verificationLevel desc, then placeholder rating (null), then recency
   providers.sort((a, b) => {
@@ -66,13 +95,19 @@ async function createBooking(req, res) {
   const { error, value } = createSchema.validate(req.body);
   if (error) return res.status(400).json({ error: error.message });
 
-  const {
+  let {
     serviceCategory,
     serviceArea,
     schedule,
     price = 0,
     providerId = null,
   } = value;
+
+  // normalize inputs
+  serviceCategory = normalizeCategory(serviceCategory);
+  serviceArea = String(serviceArea).trim().toLowerCase();
+  if (!isValidCategory(serviceCategory))
+    return res.status(400).json({ error: "Invalid serviceCategory" });
 
   let assignedProvider = null;
 
@@ -84,8 +119,9 @@ async function createBooking(req, res) {
       return res.status(400).json({ error: "Provider not eligible" });
   } else {
     // simple deterministic strategy: pick top-ranked provider matching category/area
+    // use normalized matching (serviceCategory stored normalized, serviceAreas array contains normalized area values)
     const candidates = await Provider.find({
-      serviceCategory,
+      serviceCategory: serviceCategory,
       serviceAreas: serviceArea,
       verificationLevel: { $gte: 2 },
     })

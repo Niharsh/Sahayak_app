@@ -34,6 +34,16 @@ async function apply(req, res) {
   const { error, value } = applySchema.validate(body);
   if (error) return res.status(400).json({ error: error.message });
 
+  const { normalizeCategory, isValidCategory } = require("../utils/categories");
+  const cat = normalizeCategory(value.serviceCategory);
+  if (!isValidCategory(cat))
+    return res.status(400).json({ error: "Invalid serviceCategory" });
+
+  // normalize areas
+  const areas = (value.serviceAreas || []).map((a) =>
+    String(a).trim().toLowerCase(),
+  );
+
   // map files
   const filesMeta = [];
   if (req.files) {
@@ -57,8 +67,8 @@ async function apply(req, res) {
 
   const provider = new Provider({
     user: userId,
-    serviceCategory: value.serviceCategory,
-    serviceAreas: value.serviceAreas,
+    serviceCategory: cat,
+    serviceAreas: areas,
     experienceYears: value.experienceYears,
     verificationLevel: 0,
     verification: {
@@ -117,8 +127,16 @@ async function updateMe(req, res) {
   });
   if (error) return res.status(400).json({ error: error.message });
 
-  provider.serviceCategory = value.serviceCategory;
-  provider.serviceAreas = value.serviceAreas;
+  const { normalizeCategory, isValidCategory } = require("../utils/categories");
+  const cat = normalizeCategory(value.serviceCategory);
+  if (!isValidCategory(cat))
+    return res.status(400).json({ error: "Invalid serviceCategory" });
+  const areas = (value.serviceAreas || []).map((a) =>
+    String(a).trim().toLowerCase(),
+  );
+
+  provider.serviceCategory = cat;
+  provider.serviceAreas = areas;
   provider.experienceYears = value.experienceYears;
 
   // append uploaded files if any

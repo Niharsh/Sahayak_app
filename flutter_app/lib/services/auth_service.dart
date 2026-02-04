@@ -8,23 +8,41 @@ class AuthService extends ChangeNotifier {
   final storage = FlutterSecureStorage();
   String? _token;
   String? userRole;
+  bool isLoading = false;
+  bool _initialized = false;
 
-  Future<bool> tryAutoLogin() async {
+  // Initialize once per app launch. Calls /auth/me exactly once if a token exists.
+  Future<void> init() async {
+    if (_initialized) return;
+    _initialized = true;
+    isLoading = true;
+    notifyListeners();
+
     final token = await storage.read(key: 'jwt');
-    if (token == null) return false;
-    _token = token;
-    // call /auth/me
-    final resp = await http.get(Uri.parse('$BASE_URL/auth/me'), headers: {
-      'Authorization': 'Bearer $_token',
-      'Content-Type': 'application/json',
-    });
-    if (resp.statusCode == 200) {
-      final data = json.decode(resp.body);
-      userRole = data['user']['role'];
-      notifyListeners();
-      return true;
+    if (token != null) {
+      _token = token;
+      final resp = await http.get(Uri.parse('$BASE_URL/auth/me'), headers: {
+        'Authorization': 'Bearer $_token',
+        'Content-Type': 'application/json',
+      });
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        userRole = data['user']['role'];
+      } else {
+        // token invalid, clear
+        _token = null;
+        await storage.delete(key: 'jwt');
+      }
     }
-    return false;
+
+    isLoading = false;
+    notifyListeners();
+  }
+
+  // For backward compatibility - explicit attempt
+  Future<bool> tryAutoLogin() async {
+    await init();
+    return _token != null;
   }
 
   Future<Map<String, dynamic>> login(String email, String password) async {
